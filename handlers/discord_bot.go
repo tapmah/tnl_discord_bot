@@ -88,9 +88,45 @@ func NewBot(token string, allowedChannelID string, services *service.Service) (*
 			for _, p := range players {
 				bot.servises.AddPlayerActivity(p, activity)
 				bot.servises.UpdatePlayerScore(p.Id, p.Score+activity.Score)
+				writeUserScore(p.Name, strconv.Itoa(p.Score+activity.Score), dg, m)
 			}
-			bot.WriteFullUsersScore(dg, m)
 			s.ChannelMessageSend(m.ChannelID, "Выполнено ")
+
+		case "!fee":
+			if len(parts) < 3 {
+				s.ChannelMessageSend(m.ChannelID, "Введте !fee [колличество очков] [тэг] [тэг]")
+				return
+			}
+			points, err := strconv.Atoi(parts[1])
+			if err != nil {
+				s.ChannelMessageSend(m.ChannelID, "колличество очков указано не верно")
+				return
+			}
+			playersNames := parts[2:]
+
+			var players []structs.Players
+			for _, name := range playersNames {
+				player, err := bot.servises.GetPlayerByName(name)
+				if err != nil || player.Id == 0 {
+					_, err = bot.servises.AddPlayer(structs.Players{Name: name})
+					if err != nil {
+						s.ChannelMessageSend(m.ChannelID, "Введите !add [Игроки]... Ошибка: "+err.Error())
+						return
+					}
+					player, err = bot.servises.GetPlayerByName(name)
+					if err != nil {
+						s.ChannelMessageSend(m.ChannelID, "Введите !add [Игроки]... Ошибка: "+err.Error())
+						return
+					}
+				}
+				players = append(players, player)
+			}
+
+			for _, p := range players {
+				bot.servises.UpdatePlayerScore(p.Id, p.Score-points)
+				writeUserScore(p.Name, strconv.Itoa(p.Score-points), dg, m)
+			}
+			s.ChannelMessageSend(m.ChannelID, "Выполнено")
 
 		case "!add_activity":
 			var activity structs.Activities
